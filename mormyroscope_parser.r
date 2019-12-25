@@ -1,4 +1,3 @@
-
 require(changepoint)
 require(quantmod)
 require(rlist)
@@ -12,6 +11,68 @@ nb_metadata_rows<-12
 #"https://rstudio-pubs-static.s3.amazonaws.com/183882_8ee72a6acd0f41f8b4e80d82687dcd1c.html
 #see also: https://towardsdatascience.com/unraveling-spline-regression-in-r-937626bc3d96
 
+# cs is the vector of complex points to convert
+convert.fft <- function(cs, sample.rate=1) {
+  cs <- cs / length(cs) # normalize
+  
+  distance.center <- function(c)signif( Mod(c),        4)
+  angle           <- function(c)signif( 180*Arg(c)/pi, 3)
+  
+  df <- data.frame(cycle    = 0:(length(cs)-1),
+                   freq     = 0:(length(cs)-1) * sample.rate / length(cs),
+                   strength = sapply(cs, distance.center),
+                   delay    = sapply(cs, angle))
+  print(df)
+  return(df)
+}
+
+
+#http://www.di.fc.ul.pt/~jpn/r/fourier/fourier.html
+# returns the x.n time series for a given time sequence (ts) and
+# a vector with the amount of frequencies k in the signal (X.k)
+get.trajectory <- function(X.k,ts,acq.freq) {
+  
+  N   <- length(ts)
+  i   <- complex(real = 0, imaginary = 1)
+  x.n <- rep(0,N)           # create vector to keep the trajectory
+  ks  <- 0:(length(X.k)-1)
+  
+  for(n in 0:(N-1)) {       # compute each time point x_n based on freqs X.k
+    x.n[n+1] <- sum(X.k * exp(i*2*pi*ks*n/N)) / N
+  }
+  traj<- (x.n * acq.freq)
+  convert.fft(traj,acq.freq)  
+  return(traj) 
+}
+
+#http://www.di.fc.ul.pt/~jpn/r/fourier/fourier.html
+plot.frequency.spectrum <- function(X.k, xlimits=c(0,length(X.k))) {
+  plot.data  <- cbind(0:(length(X.k)-1), Mod(X.k))
+  
+  # TODO: why this scaling is necessary?
+  plot.data[2:length(X.k),2] <- 2*plot.data[2:length(X.k),2] 
+  
+  plot(plot.data, t="h", lwd=2, main="", 
+       xlab="Frequency (Hz)", ylab="Strength", 
+       xlim=xlimits, ylim=c(0,max(Mod(plot.data[,2]))))
+}
+
+# Plot the i-th harmonic
+# Xk: the frequencies computed by the FFt
+#  i: which harmonic
+# ts: the sampling time points
+# acq.freq: the acquisition rate
+plot.harmonic <- function(Xk, i, ts, acq.freq, color="red") {
+  Xk.h <- rep(0,length(Xk))
+  Xk.h[i+1] <- Xk[i+1] # i-th harmonic
+  harmonic.trajectory <- get.trajectory(Xk.h, ts, acq.freq=acq.freq)
+  #print(harmonic.trajectory)
+  points(ts, harmonic.trajectory, type="l", col=color)
+  print("LEN1=")
+  print(length(ts))
+  print("LEN2=")
+  print(length(harmonic.trajectory))
+}
 
 frame_mormi_file<-function(p_file)
 {
@@ -97,7 +158,7 @@ generate_wave_segments<-function(p_wave, knots)
   
 }
 
-linear_regression_for_segment<-function(segment)
+ linear_regression_for_segment<-function(segment)
 {
  
   model <- lm(segment$amplitude ~ segment$time, data = segment)
@@ -214,14 +275,36 @@ analyze_mormyfile<-function(p_frame, p_title)
     i<-i+1  
   }
   
+  #fourier_var<-fft(p_frame$amplitude)
+  #print("fourier=")
+  #print(fourier_var)
+  #plot(p_frame)
+  #plot.harmonic(fourier_var,1,p_frame$time,19200,"red")
+  #plot.harmonic(fourier_var,2,p_frame$time,19200,"green")
+  #plot.harmonic(fourier_var,3,p_frame$time,19200,"yellow")
   
- 
+  X.k <- fft(p_frame$amplitude)                   # get amount of each frequency k
+  
+  time     <- tail(p_frame$time, n=1)                           # measuring time interval (seconds)
+  print(p_frame$time)
+  print(time)
+  acq.freq <- 192000                          # data acquisition frequency (Hz)
+  ts  <- seq(0,time-1/acq.freq,1/acq.freq) # vector of sampling time-points (s) 
+  
+  x.n <- get.trajectory(X.k,ts,acq.freq)   # create time wave
+  
+  #plot(ts,x.n,type="l",ylim=c(-2,4),lwd=2)
+  #abline(v=0:time,h=-2:4,lty=3); abline(h=0)
+  plot(p_frame)
+  plot.harmonic(X.k,1,ts,acq.freq,"red")
+  plot.harmonic(X.k,2,ts,acq.freq,"green")
+  plot.harmonic(X.k,3,ts,acq.freq,"blue")
 }
 
 
 #main
 src_files<-choose.files(default = "", caption = "Select file", multi = TRUE)
-#src_file<-"C:\\R_DEV_CORNELL\\data_source\\MbisaCongo_MC-1006_A.csv"
+#src_file<-"C:\\R_DEV_MORMY\\data_source\\MbisaCongo_MC-1006_A.csv"
 #mormy_frame<-frame_mormi_file(src_file[1])
 
 print(src_files)
