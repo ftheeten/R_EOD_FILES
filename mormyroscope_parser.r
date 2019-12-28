@@ -1,11 +1,44 @@
 require(changepoint)
 require(quantmod)
-require(rlist)
-require("ggplot2")
+require(rlist)     
+require("ggplot2")      
 require("tractor.base")
 
 nb_metadata_rows<-12
-#spline :
+
+#https://stackoverflow.com/questions/41435777/perform-fourier-analysis-to-a-time-series-in-r/
+nff <- function(x = NULL, t=NULL,n = NULL, up = 10L, plot = TRUE, add = FALSE, main = NULL, ...){
+  rg    <- diff(range(x))
+  #The direct transformation
+  #The first frequency is DC, the rest are duplicated
+  dff = fft(x)
+  #The time
+  t = seq(from = 1, to = length(x))
+  #Upsampled time
+  nt = seq(from = 1, to = length(x)+1-1/up, by = 1/up)
+  #New spectrum
+  ndff = array(data = 0, dim = c(length(nt), 1L))
+  ndff[1] = dff[1] #Always, it's the DC component
+  if(n != 0){
+    ndff[2:(n+1)] = dff[2:(n+1)] #The positive frequencies always come first
+    #The negative ones are trickier
+    ndff[length(ndff):(length(ndff) - n + 1)] = dff[length(x):(length(x) - n + 1)]
+  }
+  #The inverses
+  indff = fft(ndff/73, inverse = TRUE)
+  idff = fft(dff/73, inverse = TRUE)
+  if(plot){
+    if(!add){
+      plot(x = t, y = x, pch = 16L, xlab = "Time", ylab = "Measurement",
+           main = ifelse(is.null(main), paste(n, "harmonics"), main))
+      lines(y = Mod(idff), x = t, col = adjustcolor(1L, alpha = 0.5))
+    }
+    lines(y = Mod(indff), x = nt, ...)
+  }
+  ret = data.frame(time = nt, y = Mod(indff))
+  return(ret)
+}
+#spline : 
 #http://www.sthda.com/english/articles/40-regression-analysis/162-nonlinear-regression-essentials-in-r-polynomial-and-spline-regression-models/#polynomial-regression
 #linear: 
 #"https://rstudio-pubs-static.s3.amazonaws.com/183882_8ee72a6acd0f41f8b4e80d82687dcd1c.html
@@ -275,30 +308,31 @@ analyze_mormyfile<-function(p_frame, p_title)
     i<-i+1  
   }
   
-  #fourier_var<-fft(p_frame$amplitude)
-  #print("fourier=")
-  #print(fourier_var)
-  #plot(p_frame)
-  #plot.harmonic(fourier_var,1,p_frame$time,19200,"red")
-  #plot.harmonic(fourier_var,2,p_frame$time,19200,"green")
-  #plot.harmonic(fourier_var,3,p_frame$time,19200,"yellow")
+  #res = nff(x=p_frame$amplitude, t=tail(p_frame$time, n=1) , n = 1L, up = 100L, col = 2L)
+  colors = rainbow(10L, alpha = 0.3)
+  nff(x=wave$amplitude, t=tail(wave$time, n=1) , n = 10L, up = 100L, col = colors[1])
+  png("all_waves.png")
+  for(i in 1:10){
+    ad = ifelse(i == 1, FALSE, TRUE)
+    nff(x = wave$amplitude, t=tail(p_frame$time, n=1), n = i, up = 100L, col = colors[i], add = ad, main = "All waves up to 18th harmonic")
+  }
+  #X.k <- fft(p_frame$amplitude)                   # get amount of each frequency k
   
-  X.k <- fft(p_frame$amplitude)                   # get amount of each frequency k
+  #time     <- tail(p_frame$time, n=1)                           # measuring time interval (seconds)
+  #print(p_frame$time)
+  #print(time)
+  #acq.freq <- 192000                          # data acquisition frequency (Hz)
+  #ts  <- seq(0,time-1/acq.freq,1/acq.freq) # vector of sampling time-points (s) 
   
-  time     <- tail(p_frame$time, n=1)                           # measuring time interval (seconds)
-  print(p_frame$time)
-  print(time)
-  acq.freq <- 192000                          # data acquisition frequency (Hz)
-  ts  <- seq(0,time-1/acq.freq,1/acq.freq) # vector of sampling time-points (s) 
-  
-  x.n <- get.trajectory(X.k,ts,acq.freq)   # create time wave
-  
+  #x.n <- get.trajectory(X.k,ts,acq.freq)   # create time wave
+  #print(x.n)
   #plot(ts,x.n,type="l",ylim=c(-2,4),lwd=2)
   #abline(v=0:time,h=-2:4,lty=3); abline(h=0)
-  plot(p_frame)
-  plot.harmonic(X.k,1,ts,acq.freq,"red")
-  plot.harmonic(X.k,2,ts,acq.freq,"green")
-  plot.harmonic(X.k,3,ts,acq.freq,"blue")
+  #plot(ts,x.n,type="l")
+  #abline(v=0:time,h=-2:4,lty=3); abline(h=0)
+  #plot.harmonic(X.k,1,ts,acq.freq,"red")
+  #plot.harmonic(X.k,2,ts,acq.freq,"green")
+  #plot.harmonic(X.k,3,ts,acq.freq,"blue")
 }
 
 
