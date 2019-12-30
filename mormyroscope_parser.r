@@ -1,11 +1,13 @@
 require(changepoint)
 require(quantmod)
-require(rlist)
-require("ggplot2")
+require(rlist)     
+require("ggplot2")      
 require("tractor.base")
 
 nb_metadata_rows<-12
-#spline :
+nb_harmonics<-3
+
+#spline : 
 #http://www.sthda.com/english/articles/40-regression-analysis/162-nonlinear-regression-essentials-in-r-polynomial-and-spline-regression-models/#polynomial-regression
 #linear: 
 #"https://rstudio-pubs-static.s3.amazonaws.com/183882_8ee72a6acd0f41f8b4e80d82687dcd1c.html
@@ -62,16 +64,12 @@ plot.frequency.spectrum <- function(X.k, xlimits=c(0,length(X.k))) {
 #  i: which harmonic
 # ts: the sampling time points
 # acq.freq: the acquisition rate
-plot.harmonic <- function(Xk, i, ts, acq.freq, color="red") {
+get.harmonic <- function(Xk, i, ts, acq.freq) {
   Xk.h <- rep(0,length(Xk))
   Xk.h[i+1] <- Xk[i+1] # i-th harmonic
   harmonic.trajectory <- get.trajectory(Xk.h, ts, acq.freq=acq.freq)
-  #print(harmonic.trajectory)
-  points(ts, harmonic.trajectory, type="l", col=color)
-  print("LEN1=")
-  print(length(ts))
-  print("LEN2=")
-  print(length(harmonic.trajectory))
+  return(harmonic.trajectory)
+
 }
 
 frame_mormi_file<-function(p_file)
@@ -107,6 +105,19 @@ mean_silence<-function(p_frame, p_begin, p_end)
   
 }
 
+get_modulus<-function(x)
+{
+  print(typeof(x))
+  print(typeof(x[1]))
+  return(sapply(x,
+                  function(x)
+                  {
+                    return(Mod(x))
+                  }
+                ))
+}
+
+
 normalize <- function(x) {
   return ((x - min(x)) / (max(x) - min(x)))
 }
@@ -118,7 +129,7 @@ detect_wave<-function(p_normalized, inflexion_points)
   inflexion_points=c(1,inflexion_points)
   
   ampl=c()
-
+  
   for(i in 1:(length(inflexion_points)-1))
   {
     
@@ -142,7 +153,7 @@ generate_wave_segments<-function(p_wave, knots)
   returned=list()
   for(i in 1:(length(knots)-1))
   {
-   
+    
     next_i <- i + 1
     
     start <- knots[i]
@@ -158,11 +169,11 @@ generate_wave_segments<-function(p_wave, knots)
   
 }
 
- linear_regression_for_segment<-function(segment)
+linear_regression_for_segment<-function(segment)
 {
- 
+  
   model <- lm(segment$amplitude ~ segment$time, data = segment)
- 
+  
   return(model)
   
 }
@@ -192,7 +203,7 @@ analyze_mormyfile<-function(p_frame, p_title)
                         }
   )
   
-
+  
   #replace original amplitude by original_value - mean_first_segment
   p_frame$amplitude <- subst_silence
   
@@ -206,23 +217,23 @@ analyze_mormyfile<-function(p_frame, p_title)
   
   #isolate wave
   wave<-p_frame[c(inflexions[wave_index-1]:inflexions[wave_index]),]
-
+  
   peaks<-findPeaks(wave$amplitude)
   valleys<-findValleys(wave$amplitude)
-
+  
   wave_knots<-c(1,sort(c(peaks, valleys)),length(wave$amplitude))
-
-
+  
+  
   #print global signal
   tmp_plot_inf<-ggplot(data=p_frame,mapping=aes(x = time, y = amplitude))+ geom_line() +ggtitle(paste0(p_title,"\r\nInflection points, peaks and valleys"))
- 
+  
   for (pt in inflexions)
   {
     
     tmp_plot_inf<-tmp_plot_inf + geom_vline(xintercept = p_frame[pt,1], 
-                    color = "red", size=0.5)
+                                            color = "red", size=0.5)
   }
- 
+  
   
   ggsave(paste0(tools::file_path_sans_ext(p_title),"_inflexion_points.png"), plot=tmp_plot_inf, device="png")
   
@@ -231,10 +242,10 @@ analyze_mormyfile<-function(p_frame, p_title)
   print(wave_knots)
   for (pt in wave_knots)
   {
-   
+    
     
     tmp_plot_wave<-tmp_plot_wave + geom_vline(xintercept = wave[pt,1], 
-    color = "green", size=0.5)
+                                              color = "green", size=0.5)
   }
   ggsave(paste0(tools::file_path_sans_ext(p_title),"_wave.png"), plot=tmp_plot_wave, device="png")
   #time_peaks <-sapply(wave_knots, function(x) p_frame[x,1])
@@ -242,7 +253,7 @@ analyze_mormyfile<-function(p_frame, p_title)
   
   #analyze wave
   wave_segments<-generate_wave_segments(wave, wave_knots)
-
+  
   write(implode(c("segment", "start","end", "intercepts", "slope", "r.squared", "p.value"), sep = "\t"),file=file_result, append=TRUE)
   i=1
   for(seg in wave_segments)
@@ -262,9 +273,9 @@ analyze_mormyfile<-function(p_frame, p_title)
     #print("-----------------")
     #print(seg)
     
-                                  
-  
-   
+    
+    
+    
     tmp_plot=tmp_plot + geom_abline(linetype ="dashed", size=1, aes(intercept=coeff_seg[1], slope=coeff_seg[2], colour=eq)) +
       scale_fill_manual(name=ab_name, values=c(eq))  + theme(legend.position="bottom")+
       scale_color_manual(name=ab_name, values=c("red")) 
@@ -274,37 +285,39 @@ analyze_mormyfile<-function(p_frame, p_title)
     
     i<-i+1  
   }
-  
-  #fourier_var<-fft(p_frame$amplitude)
-  #print("fourier=")
-  #print(fourier_var)
-  #plot(p_frame)
-  #plot.harmonic(fourier_var,1,p_frame$time,19200,"red")
-  #plot.harmonic(fourier_var,2,p_frame$time,19200,"green")
-  #plot.harmonic(fourier_var,3,p_frame$time,19200,"yellow")
-  
-  X.k <- fft(p_frame$amplitude)                   # get amount of each frequency k
-  
-  time     <- tail(p_frame$time, n=1)                           # measuring time interval (seconds)
-  print(p_frame$time)
+  fourier_var=fft(p_frame$amplitude)
+  time <- tail(p_frame$time,1)
   print(time)
-  acq.freq <- 192000                          # data acquisition frequency (Hz)
-  ts  <- seq(0,time-1/acq.freq,1/acq.freq) # vector of sampling time-points (s) 
+  acq.freq <- 192000
+  ts  <- p_frame$time #seq(0,time-1/acq.freq,1/acq.freq)
+  print(ts)
+  #plot(fourier_var, type='l')
+  print("CALL TRAJ")
+
+  x.n <- get.trajectory(fourier_var,ts,acq.freq)   # create time wave
   
-  x.n <- get.trajectory(X.k,ts,acq.freq)   # create time wave
-  
-  #plot(ts,x.n,type="l",ylim=c(-2,4),lwd=2)
-  #abline(v=0:time,h=-2:4,lty=3); abline(h=0)
-  plot(p_frame)
-  plot.harmonic(X.k,1,ts,acq.freq,"red")
-  plot.harmonic(X.k,2,ts,acq.freq,"green")
-  plot.harmonic(X.k,3,ts,acq.freq,"blue")
+  print(typeof(x.n))
+ 
+  mod_fft<-get_modulus(x.n)
+  normalized_fft<-normalize(mod_fft)
+  plot(ts,normalized_fft, type="l")
+ 
+  colors = rainbow(nb_harmonics, alpha = 0.3)
+  for(i in 1:nb_harmonics)
+  {
+    print("CALL HARM")
+    print(i)
+    harm_var<-get.harmonic(fourier_var,i,ts,acq.freq)
+    harm_var_mod<-get_modulus(harm_var)
+    harm_var_norm<-normalize(harm_var_mod)
+    points(ts, harm_var_norm, type="l", col=colors[i])
+  }
 }
 
 
 #main
-src_files<-choose.files(default = "", caption = "Select file", multi = TRUE)
-#src_file<-"C:\\R_DEV_MORMY\\data_source\\MbisaCongo_MC-1006_A.csv"
+#src_files<-choose.files(default = "", caption = "Select file", multi = TRUE)
+src_files<-"C:\\R_DEV_MORMY\\data_source\\MbisaCongo_MC-1006_A.csv"
 #mormy_frame<-frame_mormi_file(src_file[1])
 
 print(src_files)
