@@ -316,9 +316,9 @@ analyze_mormyfile<-function(p_frame, p_title)
 
 
 #main
-#src_files<-choose.files(default = "", caption = "Select file", multi = TRUE)
-src_files<-"C:\\R_DEV_MORMY\\data_source\\MbisaCongo_MC-1006_A.csv"
-#mormy_frame<-frame_mormi_file(src_file[1])
+src_files<-choose.files(default = "", caption = "Select file", multi = TRUE)
+#src_files<-"C:\\R_DEV_MORMY\\data_source\\MbisaCongo_MC-1006_A.csv"
+
 
 print(src_files)
 for(src in src_files)
