@@ -1,8 +1,11 @@
-require(changepoint)
 require(ggplot2)
+require(changepoint)
+require(reader) #get.delim
+require(pracma) #findPeaks https://www.rdocumentation.org/packages/pracma/versions/1.9.9/topics/findpeaks
 
 
 nb_metadata_rows<-12
+global_decimal_sep<-'.'
 global_treshold <- 0.02
 global_plot<-NULL
 global_frame<-NULL
@@ -84,15 +87,48 @@ plot_frame<-function(p_data, p_changepoints_mean, p_changepoints_var, p_changepo
                color = "green", size=0.5)
 }
 
-handle_file<-function(p_file)
+find_peaks_and_valleys<-function(p_frame, p_silent_index)
+{
+  #v_diff=diff(p_frame$amplitude)
+  #View(v_diff)
+  #v_sign=lapply(v_diff,
+  #           (function(x)
+  #           {
+  #             ifelse(x>0, 1, -1)
+  #           }
+  #             )     
+  #              )
+  
+  v_peaks<-findpeaks(p_frame$amplitude)
+  p_frame$amplitude=(p_frame$amplitude) * - 1
+  v_peaks2<-findpeaks(p_frame$amplitude, threshold=0)
+  v_tmp = c(v_peaks[,2] ,v_peaks2[,2] )
+  print(v_peaks[,2])
+  print(v_peaks2[,2] )
+  v_silent_peaks<-which(v_tmp< p_silent_index)
+  v_tmp[-v_silent_peaks]
+ 
+}
+
+handle_file<-function(p_file,
+                      sep='\t',
+                      skip=nb_metadata_rows )
 {
   print("--------------------------------------------------------------------------")
    print(p_file)
-  v_frame=read.csv(
+   
+  global_decimal_sep <<- get.delim(p_file,
+                                   skip=nb_metadata_rows,
+                                   delims=c(".",".")
+                                   )
+  print("DELIMITER IS :")
+  print(global_decimal_sep)
+  v_frame <- read.csv(
     p_file,
     sep='\t',
     skip=nb_metadata_rows, 
     header=TRUE,
+    dec=global_decimal_sep,
     colClasses=c("numeric","numeric", "NULL")
   )
   
@@ -137,9 +173,19 @@ handle_file<-function(p_file)
   print(mean_by_meanvar)
   print("BASELINE OF 1ST SEGMENT BY 40")
   print(mean_by_40)
-  chosen_baseline <- min(c(mean_by_var, mean_by_meanvar, mean_by_40))
+  #chosen_baseline <- min(c(mean_by_var, mean_by_meanvar, mean_by_40))
+  
+  frame_baseline <- data.frame(c(mean_by_var,mean_by_meanvar,mean_by_40 ), 
+                               c(v_changepoints_var[1], v_changepoints_meanvar[1],40))
+ 
+  colnames(frame_baseline)<-c("mean", "position")
+  chosen_baseline_index=min(which(frame_baseline$mean==min(frame_baseline$mean)))
+  chosen_baseline=frame_baseline$mean[chosen_baseline_index]
+  chosen_baseline_position=frame_baseline$position[chosen_baseline_index]
   print("Chosen base line")
   print(chosen_baseline)
+  print("Chosen base position")
+  print(chosen_baseline_position)
   
   v_frame<-base_and_norm_amplitude(v_frame,chosen_baseline )
   v_frame<-normalize_and_center_time(v_frame)
@@ -164,11 +210,18 @@ handle_file<-function(p_file)
   v_frame_start_end  = v_frame[signal_limit, ]
   v_frame_start_end$labels = c("T1","T2")
   
+  v_zero_point=which(abs(v_frame$time)==min(abs(v_frame$time)))
+  v_frame_zero= v_frame[v_zero_point,]
+  
+  #find all peaks and valleys
+  valleys_peaks <- find_peaks_and_valleys(v_frame,chosen_baseline_position)
+  print(valleys_peaks)
+  
   tmp_plot<-ggplot(v_frame,aes(x = time, y = amplitude)) + geom_line() + ggtitle(p_file)+
-    geom_point(shape=8, data= v_frame_extrema , fill="black", color="black", size=3) + #display peaks
-    geom_text(data= v_frame_extrema, label=v_frame_extrema$labels,  hjust=0,vjust=0) + #peaks label
-    geom_vline(xintercept = 0, linetype="dashed", color = "black", size=0.5) + # x=0 (halfway between peaks)
-    #geom_vline(xintercept=v_frame_start_end$time,  color = "red", size=0.5)
+    #geom_point(shape=8, data= v_frame_extrema , fill="black", color="black", size=3) + #display peaks
+    geom_point(shape=8, data= v_frame[valleys_peaks,] , fill="black", color="black", size=3) + #display peaks
+    #???geom_text(data= v_frame_extrema, label=v_frame_extrema$labels,  hjust=0,vjust=0) + #peaks label
+    geom_point(shape=16,   data= v_frame_zero ,  color="red", size=3) + #x=0 (halfway between peaks)
     geom_point(shape=1,   data= v_frame_start_end ,  color="red", size=3) + #display start and stop
     geom_text(data= v_frame_start_end, label=v_frame_start_end$labels,  hjust=0,vjust=0)
   
