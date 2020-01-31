@@ -6,7 +6,8 @@ require(pracma) #findPeaks https://www.rdocumentation.org/packages/pracma/versio
 
 nb_metadata_rows<-12
 global_decimal_sep<-'.'
-global_treshold <- 0.02
+global_treshold <- 
+global_treshold_peaks <- 0.000025
 global_plot<-NULL
 global_frame<-NULL
 #baseline
@@ -23,12 +24,12 @@ base_and_norm_amplitude<-function( p_frame, mean_first_segment)
 
 
 
-start_end_signal<-function(p_frame, p_treshold)
+start_end_signal<-function(p_frame, p_threshold)
 {
   #v_diff <- diff(p_frame$amplitude)
   #v_diff <- abs(v_diff)
   p_frame$amplitude <- abs(p_frame$amplitude)
-  signal <- which(p_frame$amplitude > p_treshold)
+  signal <- which(p_frame$amplitude > p_threshold)
   c(min(signal), max(signal))
 }
 
@@ -87,27 +88,66 @@ plot_frame<-function(p_data, p_changepoints_mean, p_changepoints_var, p_changepo
                color = "green", size=0.5)
 }
 
-find_peaks_and_valleys<-function(p_frame, p_silent_index)
+detect_peak_plateau<-function(p_frame, current_position, last_position)
 {
-  #v_diff=diff(p_frame$amplitude)
-  #View(v_diff)
-  #v_sign=lapply(v_diff,
-  #           (function(x)
-  #           {
-  #             ifelse(x>0, 1, -1)
-  #           }
-  #             )     
-  #              )
-  
-  v_peaks<-findpeaks(p_frame$amplitude)
+  returned<-current_position
+  p_ref_val=p_frame$amplitude[current_position]
+  for(i in current_position+1:last_position)
+  {
+    p_val<-p_frame$amplitude[i]
+    if(p_val!=p_ref_val)
+    {
+      return(i-1)
+    }
+  }
+  returned
+}
+
+peak_detection<-function(p_frame, start_index,last_position, threshold=NULL, diff_threshold=NULL)
+{
+  v_returned <-c()
+  for(i in start_index:last_position )
+  {
+    print(i)
+    p_val=p_frame$amplitude[i]
+    p_previous=p_frame$amplitude[i-1]
+    p_next=p_frame$amplitude[i+1]
+    if(p_val > p_previous && p_val == p_next)
+    {
+      i<-detect_peak_plateau(p_frame, i, nrow(p_frame)-1)
+      p_next=p_frame$amplitude[i+1]
+    }
+    if(p_val > p_previous && p_val > p_next )
+    {
+      if(!is.null(threshold))
+      {
+        if(p_val<=threshold)
+        {
+          next
+        }
+      }
+      if(!is.null(diff_threshold))
+      {
+        if((p_val-p_previous )<=diff_threshold)
+        {
+          next
+        }
+      }  
+      v_returned<- c(v_returned, i)
+     
+    }
+  }
+  v_returned
+}
+
+find_peaks_and_valleys<-function(p_frame, p_silent_index, p_last_position, p_diff_threshold)
+{
+
+  v_peaks<-peak_detection(p_frame, p_silent_index,p_last_position, diff_threshold =p_diff_threshold )
   p_frame$amplitude=(p_frame$amplitude) * - 1
-  v_peaks2<-findpeaks(p_frame$amplitude, threshold=0)
-  v_tmp = c(v_peaks[,2] ,v_peaks2[,2] )
-  print(v_peaks[,2])
-  print(v_peaks2[,2] )
-  v_silent_peaks<-which(v_tmp< p_silent_index)
-  v_tmp[-v_silent_peaks]
- 
+  v_peaks2<-peak_detection(p_frame, p_silent_index,p_last_position, threshold=0,diff_threshold =p_diff_threshold)
+  sort(c(v_peaks ,v_peaks2))
+  
 }
 
 handle_file<-function(p_file,
@@ -174,18 +214,27 @@ handle_file<-function(p_file,
   print("BASELINE OF 1ST SEGMENT BY 40")
   print(mean_by_40)
   #chosen_baseline <- min(c(mean_by_var, mean_by_meanvar, mean_by_40))
+
+
   
   frame_baseline <- data.frame(c(mean_by_var,mean_by_meanvar,mean_by_40 ), 
-                               c(v_changepoints_var[1], v_changepoints_meanvar[1],40))
+                               c(v_changepoints_var[1], v_changepoints_meanvar[1],40),
+                               c(tail(v_changepoints_var, n=1), tail(v_changepoints_meanvar, n=1),nrow(v_frame))
+                               )
  
-  colnames(frame_baseline)<-c("mean", "position")
-  chosen_baseline_index=min(which(frame_baseline$mean==min(frame_baseline$mean)))
-  chosen_baseline=frame_baseline$mean[chosen_baseline_index]
-  chosen_baseline_position=frame_baseline$position[chosen_baseline_index]
-  print("Chosen base line")
+  colnames(frame_baseline)<-c("mean", "position", "last'")
+  #chosen_baseline_index=min(which(frame_baseline$mean==min(frame_baseline$mean)))
+  chosen_baseline_index<-min(which(frame_baseline$position==max(frame_baseline$position)))
+  chosen_baseline<-frame_baseline$mean[chosen_baseline_index]
+  chosen_baseline_position<-frame_baseline$position[chosen_baseline_index]
+  chosen_last_position<-frame_baseline$last[chosen_baseline_index]
+ 
+   print("Chosen base line")
   print(chosen_baseline)
   print("Chosen base position")
   print(chosen_baseline_position)
+  print("Chosen last position")
+  print(chosen_last_position)
   
   v_frame<-base_and_norm_amplitude(v_frame,chosen_baseline )
   v_frame<-normalize_and_center_time(v_frame)
@@ -214,7 +263,7 @@ handle_file<-function(p_file,
   v_frame_zero= v_frame[v_zero_point,]
   
   #find all peaks and valleys
-  valleys_peaks <- find_peaks_and_valleys(v_frame,chosen_baseline_position)
+  valleys_peaks <- find_peaks_and_valleys(v_frame,chosen_baseline_position,chosen_last_position-1, global_treshold_peaks )
   print(valleys_peaks)
   
   tmp_plot<-ggplot(v_frame,aes(x = time, y = amplitude)) + geom_line() + ggtitle(p_file)+
@@ -223,7 +272,9 @@ handle_file<-function(p_file,
     #???geom_text(data= v_frame_extrema, label=v_frame_extrema$labels,  hjust=0,vjust=0) + #peaks label
     geom_point(shape=16,   data= v_frame_zero ,  color="red", size=3) + #x=0 (halfway between peaks)
     geom_point(shape=1,   data= v_frame_start_end ,  color="red", size=3) + #display start and stop
-    geom_text(data= v_frame_start_end, label=v_frame_start_end$labels,  hjust=0,vjust=0)
+    geom_text(data= v_frame_start_end, label=v_frame_start_end$labels,  hjust=0,vjust=0)+
+    geom_vline(aes(xintercept=v_frame$time[chosen_baseline_position]),
+               color="red", linetype="dashed", size=1)
   
   save_variable<-paste0(p_file, ".png")
   ggsave(save_variable)
@@ -243,7 +294,7 @@ handle_file<-function(p_file,
 ##MAIN 
 
 src_files<-choose.files(default = "", caption = "Select file", multi = TRUE)
-#src_file<-"D:\\ftheeten\\BICS\\R_DEV_CORNELL\\TRAINING2020\\data\\MbisaCongo_MC-1013_A.csv"
+
 print(src_files)
 typeof(src_files)
 
