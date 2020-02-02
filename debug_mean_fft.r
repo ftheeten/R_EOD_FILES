@@ -2,7 +2,7 @@ require(ggplot2)
 require(changepoint)
 require(reader) #get.delim
 require(pracma) #findPeaks https://www.rdocumentation.org/packages/pracma/versions/1.9.9/topics/findpeaks
-require("oce") #pwelch  
+#require("oce") #pwelch  
 
 nb_metadata_rows<-12
 acq.freq <- 192000
@@ -11,11 +11,12 @@ global_treshold <- 0.02
 global_treshold_peaks <- 0.000025
 global_plot<-NULL
 global_frame<-NULL
+go_freq <- TRUE
 #baseline
 
 ## Functions
 
-eod_fourier <-function(p_frame)
+eod_spectrum <-function(p_frame)
 {
  
   #var_pwelch<-pwelch(p_frame$amplitude,fs=acq.freq, plot=FALSE)
@@ -26,7 +27,7 @@ eod_fourier <-function(p_frame)
   tmp=data.frame(freq=spec$freq,spec=spec$spec )
   
   tmp_plot<-ggplot(tmp, aes(x=tmp$freq, y=10*log10(tmp$spec/max(tmp$spec)) )) + geom_line() + scale_x_log10()
-  print(tmp_plot)
+  tmp_plot
   
 }
 
@@ -56,11 +57,17 @@ pad_1_sec<-function(p_frame)
   print(min(v_1sec_frame$time))
   print("Max padded")
   print(max(v_1sec_frame$time))
-  eod_fourier(v_1sec_frame)  
+  v_1sec_frame
   
   
 }
 
+
+fct_freq <- function(p_frame, p_file)
+{
+  v_1sec_frame<-pad_1_sec(p_frame)
+  v_plot<-eod_spectrum(v_1sec_frame)  
+}
 
 #LANDMARKS
 base_and_norm_amplitude<-function( p_frame, mean_first_segment)
@@ -82,13 +89,9 @@ start_end_signal<-function(p_frame, p_threshold)
   c(min(signal), max(signal))
 }
 
-normalize_and_center_time<-function(p_frame, p_pad=FALSE)
+normalize_and_center_time<-function(p_frame)
 {
-  if(p_pad)
-  {
-    pad_1_sec(p_frame)
-  }
-  
+
   #normalize time
   p_frame$time<- p_frame$time / (max(p_frame$time) - min(p_frame$time))
   #find center
@@ -290,8 +293,16 @@ handle_file<-function(p_file,
   print(chosen_last_position)
   
   v_frame<-base_and_norm_amplitude(v_frame,chosen_baseline )
-  #TRUE=> pad time for fft
-  v_frame<-normalize_and_center_time(v_frame, TRUE)
+  #go_freq
+  if(go_freq)
+  {
+    #COPY
+    v_frame_freq<-data.frame(v_frame)
+    tmp_plot<-fct_freq(v_frame_freq)
+    v_file_name_freq=sub(".csv", '_freq.png', p_file )
+    ggsave(v_file_name_freq , tmp_plot + ggtitle(v_file_name_freq))
+  }
+  v_frame<-normalize_and_center_time(v_frame)
   print("returned")
   v_frame_extrema  = v_frame[sort(c(min(which(v_frame$amplitude == min(v_frame$amplitude) )), min(which(v_frame$amplitude == max(v_frame$amplitude))) )), ]
   v_frame_extrema$labels = c("P0","P1")
@@ -331,7 +342,7 @@ handle_file<-function(p_file,
                color="red", linetype="dashed", size=1)
   
   save_variable<-paste0(p_file, ".png")
-  ggsave(save_variable)
+  ggsave(save_variable, tmp_plot)
   
   if(is.null(global_frame))
   {
