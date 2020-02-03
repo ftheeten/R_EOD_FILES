@@ -63,6 +63,23 @@ pad_1_sec<-function(p_frame)
   
 }
 
+fct_diff_deriv<-function(p_frame)
+{
+  v_returned=c()
+  v_diff=diff(p_frame$amplitude)
+  v_returned=c(v_returned,0 )
+  for(i in 1:length(v_diff)-1)
+  {
+    v_returned=c(v_returned,v_diff[i+1]-v_diff[i] )
+  }
+  v_returned=c(v_returned,0 )
+ 
+  p_frame$amplitude<-v_returned
+  
+  p_frame
+  
+  
+}
 
 fct_freq <- function(p_frame, p_file)
 {
@@ -223,6 +240,22 @@ find_peaks_and_valleys<-function(p_frame, p_silent_index, p_last_position, p_dif
   v_peaks
 }
 
+save_plot<-function(p_frame, p_file, valleys_peaks, v_frame_zero, v_frame_start_end, chosen_baseline_position )
+{
+  tmp_plot<-ggplot(p_frame,aes(x = time, y = amplitude)) + geom_line() + ggtitle(p_file)+
+    #geom_point(shape=8, data= v_frame_extrema , fill="black", color="black", size=3) + #display peaks
+    geom_point(shape=8, data= p_frame[valleys_peaks,] , fill="black", color="black", size=3) + #display peaks
+    #???geom_text(data= v_frame_extrema, label=v_frame_extrema$labels,  hjust=0,vjust=0) + #peaks label
+    geom_point(shape=16,   data= v_frame_zero ,  color="red", size=3) + #x=0 (halfway between peaks)
+    geom_point(shape=1,   data= v_frame_start_end ,  color="red", size=3) + #display start and stop
+    geom_text(data= v_frame_start_end, label=v_frame_start_end$labels,  hjust=0,vjust=0)+
+    geom_vline(aes(xintercept=p_frame$time[chosen_baseline_position]),
+               color="red", linetype="dashed", size=1)
+  
+  save_variable<-paste0(p_file, ".png")
+  ggsave(save_variable, tmp_plot)
+}
+
 handle_file<-function(p_file,
                       sep='\t',
                       skip=nb_metadata_rows )
@@ -309,17 +342,21 @@ handle_file<-function(p_file,
   print("Chosen last position")
   print(chosen_last_position)
   
+  v_frame_normalize_time_only<-data.frame(v_frame)
   v_frame<-base_and_norm_amplitude(v_frame,chosen_baseline )
   #go_freq
   if(go_freq)
   {
     #COPY
     v_frame_freq<-data.frame(v_frame)
-    tmp_plot<-fct_freq(v_frame_freq)
-    v_file_name_freq=sub(".csv", '_freq.png', p_file )
-    ggsave(v_file_name_freq , tmp_plot + ggtitle(v_file_name_freq))
+    tmp_plot_periodgram <- fct_freq(v_frame_freq)
+    v_file_name_freq<-sub(".csv", '_freq.png', p_file )
+    ggsave(v_file_name_freq , tmp_plot_periodgram + ggtitle(v_file_name_freq))
+    
   }
   v_frame<-normalize_and_center_time(v_frame)
+  v_frame_normalize_time_only<-normalize_and_center_time(v_frame)
+  
   print("returned")
   v_frame_extrema  = v_frame[sort(c(min(which(v_frame$amplitude == min(v_frame$amplitude) )), min(which(v_frame$amplitude == max(v_frame$amplitude))) )), ]
   v_frame_extrema$labels = c("P0","P1")
@@ -348,19 +385,18 @@ handle_file<-function(p_file,
   valleys_peaks <- find_peaks_and_valleys(v_frame,chosen_baseline_position,chosen_last_position-1, global_treshold_peaks )
   print(valleys_peaks)
   
-  tmp_plot<-ggplot(v_frame,aes(x = time, y = amplitude)) + geom_line() + ggtitle(p_file)+
-    #geom_point(shape=8, data= v_frame_extrema , fill="black", color="black", size=3) + #display peaks
-    geom_point(shape=8, data= v_frame[valleys_peaks,] , fill="black", color="black", size=3) + #display peaks
-    #???geom_text(data= v_frame_extrema, label=v_frame_extrema$labels,  hjust=0,vjust=0) + #peaks label
-    geom_point(shape=16,   data= v_frame_zero ,  color="red", size=3) + #x=0 (halfway between peaks)
-    geom_point(shape=1,   data= v_frame_start_end ,  color="red", size=3) + #display start and stop
-    geom_text(data= v_frame_start_end, label=v_frame_start_end$labels,  hjust=0,vjust=0)+
-    geom_vline(aes(xintercept=v_frame$time[chosen_baseline_position]),
-               color="red", linetype="dashed", size=1)
+  #main plot
+  save_plot(v_frame, p_file, valleys_peaks, v_frame_zero, v_frame_start_end, chosen_baseline_position )
   
-  save_variable<-paste0(p_file, ".png")
-  ggsave(save_variable, tmp_plot)
-  
+  #deriv plot
+  tmp_frame_deriv<-fct_diff_deriv(v_frame_normalize_time_only)
+  v_file_name_deriv<-sub(".csv", '_deriv.png', p_file )
+  v_frame_deriv_start_end  = tmp_frame_deriv[signal_limit, ]
+  v_frame_deriv_start_end$labels = c("T1","T2")
+  v_frame_deriv_zero= tmp_frame_deriv[v_zero_point,]
+  save_plot(tmp_frame_deriv, v_file_name_deriv, valleys_peaks, v_frame_deriv_zero, v_frame_deriv_start_end, chosen_baseline_position )
+    
+
   if(is.null(global_frame))
   {
     global_frame<<-v_frame
