@@ -2,13 +2,14 @@ require(ggplot2)
 require(changepoint)
 require(reader) #get.delim
 require(pracma) #findPeaks https://www.rdocumentation.org/packages/pracma/versions/1.9.9/topics/findpeaks
-#require("oce") #pwelch  
+require(phonTools)
 
 nb_metadata_rows<-12
 acq.freq <- 192000
 global_decimal_sep<-'.'
 global_treshold <- 0.02
-global_treshold_peaks <- 0.000025
+global_treshold_peaks <- 0# 0.000025
+global_nb_peaks<-7
 global_plot<-NULL
 global_frame<-NULL
 go_freq <- TRUE
@@ -25,7 +26,7 @@ eod_spectrum <-function(p_frame)
   spec<-spectrum(p_frame$amplitude,fs=acq.freq, plot=FALSE)
   #plot( spec$freq,  10*log10(spec$spec/max(spec$spec)) , type='l', log = "x")
   tmp=data.frame(freq=spec$freq,spec=spec$spec )
-  
+  tmp$freq<-tmp$freq* acq.freq
   tmp_plot<-ggplot(tmp, aes(x=tmp$freq, y=10*log10(tmp$spec/max(tmp$spec)) )) + geom_line() + scale_x_log10()
   tmp_plot
   
@@ -52,7 +53,7 @@ pad_1_sec<-function(p_frame)
   v_1sec_frame<-rbind(v_pad_frame,v_1sec_frame )
   v_pad_frame$time=v_pad_frame$time + v_mean_interval +max(v_1sec_frame$time)
   v_1sec_frame<-rbind(v_1sec_frame, v_pad_frame)
-  plot(v_1sec_frame)
+  plot(v_1sec_frame, type='l')
   print("Min padded")
   print(min(v_1sec_frame$time))
   print("Max padded")
@@ -162,7 +163,10 @@ detect_peak_plateau<-function(p_frame, current_position, last_position)
 
 peak_detection<-function(p_frame, start_index,last_position, threshold=NULL, diff_threshold=NULL)
 {
-  v_returned <-c()
+  v_position=c()
+  v_prominence=c()
+  previous_peak=0
+  #v_prominence <-c()
   for(i in start_index:last_position )
   {
     p_val=p_frame$amplitude[i]
@@ -188,22 +192,35 @@ peak_detection<-function(p_frame, start_index,last_position, threshold=NULL, dif
         {
           next
         }
-      }  
-      v_returned<- c(v_returned, i)
-     
+      }
+      
+      v_prominence<-c(v_prominence, abs(p_val-previous_peak)) 
+      v_position=c(v_position, i)
+      previous_peak=p_val
     }
+    
   }
+  v_returned<-data.frame(position=v_position, prominence=v_prominence)
   v_returned
 }
 
 find_peaks_and_valleys<-function(p_frame, p_silent_index, p_last_position, p_diff_threshold)
 {
 
-  v_peaks<-peak_detection(p_frame, p_silent_index,p_last_position, diff_threshold =p_diff_threshold )
+  o_peaks<-peak_detection(p_frame, p_silent_index,p_last_position, diff_threshold =p_diff_threshold )
   p_frame$amplitude=(p_frame$amplitude) * - 1
-  v_peaks2<-peak_detection(p_frame, p_silent_index,p_last_position, threshold=0,diff_threshold =p_diff_threshold)
-  sort(c(v_peaks ,v_peaks2))
+  o_peaks2<-peak_detection(p_frame, p_silent_index,p_last_position, threshold=0,diff_threshold =p_diff_threshold)
   
+  v_all_submits=rbind(o_peaks, o_peaks2)
+
+  v_all_submits<-v_all_submits[order(v_all_submits$prominence),]
+
+  v_peaks=v_all_submits$position
+
+  v_peaks<-unique(v_peaks)
+
+  v_peaks<-tail(v_peaks, n=global_nb_peaks)
+  v_peaks
 }
 
 handle_file<-function(p_file,
