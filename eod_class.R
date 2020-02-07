@@ -53,7 +53,7 @@ Eod <-setRefClass("Eod",
                        last_by_meanvar="numeric",
                        last_by_arbitrary_baseline="numeric",
                        arbitraryBaseline="numeric",
-                       frame_baseline=="ANY"
+                       frame_baseline="ANY"
                      )
                      
 )
@@ -222,24 +222,26 @@ Eod$methods(
   
     getPossibleBaseline=function()
     {
-      print( global_baseline_done)
+     
       if(global_baseline_done==FALSE)
       {
         defineBaseline()
-        print("done")
+        
       }
-      df<-data.frame(type=c("mean", "var", "meanvar","by_arbitrary_baseline" ), mean_value=c(mean_by_mean,mean_by_var,
-                                                                             mean_by_meanvar,mean_by_arbitrary_baseline ))
+      
      
-      frame_baseline <<- data.frame(c(mean_by_mean,mean_by_var,mean_by_meanvar,mean_by_arbitrary_baseline ), 
-                                   c(v_changepoints_mean[1],v_changepoints_var[1], v_changepoints_meanvar[1],40),
-                                   c(last_by_mean, last_by_var, last_by_meanvar,last_by_arbitrary_baseline)
+      frame_baseline <<- data.frame(
+                          type=c("mean", "var", "meanvar","by_arbitrary_baseline" ),
+                          mean=c(mean_by_mean,mean_by_var,mean_by_meanvar,mean_by_arbitrary_baseline ), 
+                          position=c(v_changepoints_mean[1],v_changepoints_var[1], v_changepoints_meanvar[1],arbitraryBaseline),
+                          last=c(last_by_mean, last_by_var, last_by_meanvar,last_by_arbitrary_baseline)
                                   )
       
 
-      colnames(frame_baseline)<<-c("mean", "position", "last")
-      df
+      
+      frame_baseline
     }
+    
   
   )
 
