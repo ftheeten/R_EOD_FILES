@@ -12,6 +12,7 @@ global_nb_peaks<-7
 global_arbitrary_baseline <-40
 
 global_baseline_done = FALSE
+global_baseline_type="meanvar"
 
 Eod <-setRefClass("Eod",
                      fields = list(
@@ -55,19 +56,22 @@ Eod <-setRefClass("Eod",
                        arbitraryBaseline="numeric",
                        frame_baseline="ANY",
                        frame_absolute="ANY",
+                       baselineType = "character",
                        chosen_baseline_index="numeric",
                        chosen_baseline="ANY",
                        chosen_baseline_position="numeric",
                        chosen_last_position="numeric",
                        normalized_wave= "ANY", 
                        v_frame_zero = "ANY",
+                       frame_start_end ="ANY",
                        valleys_peaks = "ANY",
                        padded_normalized_wave_for_periodgram = "ANY",
                        periodgram_frame = "ANY",
                        periodgram = "ANY",
                        main_plot="ANY",
                        periodgram_plot = "ANY",
-                       derivate_plot = "ANY"
+                       derivate_plot = "ANY", 
+                       base_filename="character"
                      )
                      
 )
@@ -96,6 +100,7 @@ Eod$methods(
              threshold = global_treshold,
              maxPeaks = global_nb_peaks,
              arbitraryBaseline= global_arbitrary_baseline,
+             baselineType=global_baseline_type,
              ...
              )
              {
@@ -131,7 +136,8 @@ Eod$methods(
               last_by_var<<-0
               last_by_meanvar<<-0
               last_by_arbitrary_baseline<<-0
-            
+              baselineType <<- baselineType 
+              base_filename<<-basename(file)
                .self
              }
     ,
@@ -206,6 +212,19 @@ Eod$methods(
     {
       derivate_plot
     },
+    getPeriodgramPlot = function()
+    {
+      periodgram
+    },
+    getT1T2= function()
+    {
+      frame_start_end
+    },
+    getLandmarks= function()
+    {
+      tmp<-normalized_wave[valleys_peaks,]
+      tmp[order(tmp$time),]
+    },
        #sc functions
     defineBaseline=function()
     {
@@ -271,7 +290,7 @@ Eod$methods(
       frame_absolute
     }
     ,
-    getPossibleBaseline=function()
+    getPossibleBaseline=function(type="meanvar")
     {
      
       if(global_baseline_done==FALSE)
@@ -293,31 +312,31 @@ Eod$methods(
                           inflexion_points=c(paste(v_changepoints_mean,collapse=" "),paste(v_changepoints_var,collapse=" "), paste(v_changepoints_meanvar,collapse=" "),paste(c(arbitraryBaseline,last_by_arbitrary_baseline),collapse=" "))
                                   )
 
-      chooseBaselineAndNormalize("meanvar")
+      chooseBaselineAndNormalize(type)
       frame_baseline
     },
     #main sc function
     chooseBaselineAndNormalize = function(type) #type = "mean, meanvar, var, arbitrary
     {
-      print("normalize")
       print(type)
-      if(type=="mean")
+      baselineType<<-type
+      if(baselineType=="mean")
       {
         chosen_baseline_index <<- 1
       }
-      else if(type=="var")
+      else if(baselineType=="var")
       {
         chosen_baseline_index <<- 2
       }
-      else if(type=="meanvar")
+      else if(baselineType=="meanvar")
       {
         chosen_baseline_index <<- 3
       }
-      else if(type=="arbitrary")
+      else if(baselineType=="arbitrary")
       {
         chosen_baseline_index <<-4
       }
-      print(chosen_baseline_index)
+      
       chosen_baseline<<-frame_baseline$mean[chosen_baseline_index]
       chosen_baseline_position<<-frame_baseline$first_position[chosen_baseline_index]
       chosen_last_position<<-frame_baseline$last_position[chosen_baseline_index]
@@ -341,8 +360,8 @@ Eod$methods(
       print(v_end_time_signal)
       print("signal duration=")
       print(v_end_time_signal - v_start_time_signal)
-      v_frame_start_end  = normalized_wave[signal_limit, ]
-      v_frame_start_end$labels = c("T1","T2")
+      frame_start_end  <<- normalized_wave[signal_limit, ]
+      frame_start_end$labels <<- c("T1","T2")
       
       v_zero_point<-which(abs(normalized_wave$time)==min(abs(normalized_wave$time)))
       v_frame_zero <<- normalized_wave[v_zero_point,]
@@ -350,14 +369,14 @@ Eod$methods(
       valleys_peaks <<- find_peaks_and_valleys(normalized_wave,chosen_baseline_position,chosen_last_position-1, p_nb_peaks=maxPeaks )
       print(valleys_peaks)
       #main plot
-      main_plot <<- save_plot(normalized_wave, "Wave and landmarks (normalized)", valleys_peaks, v_frame_zero, v_frame_start_end, chosen_baseline_position )
+      main_plot <<- save_plot(normalized_wave, paste("Wave and landmarks (normalized)",base_filename), valleys_peaks, v_frame_zero, frame_start_end, chosen_baseline_position )
       
       #deriv plot
       tmp_frame_deriv<-fct_diff_deriv(normalized_wave)
       v_frame_deriv_start_end  <- tmp_frame_deriv[signal_limit, ]
       v_frame_deriv_start_end$labels <- c("T1","T2")
       v_frame_deriv_zero <- tmp_frame_deriv[v_zero_point,]
-      derivate_plot <<- save_plot(tmp_frame_deriv, "Derivate", valleys_peaks, v_frame_deriv_zero, v_frame_deriv_start_end, chosen_baseline_position )
+      derivate_plot <<- save_plot(tmp_frame_deriv, paste("Derivate", base_filename), valleys_peaks, v_frame_deriv_zero, v_frame_deriv_start_end, chosen_baseline_position )
     },
   
   start_end_signal = function()
@@ -469,7 +488,7 @@ Eod$methods(
     
     periodgram_frame <<-data.frame(freq=spec$freq,spec=spec$spec )
     periodgram_frame$freq <<- periodgram_frame$freq * samplingRate
-    periodgram <<-ggplot(periodgram_frame, aes(x=periodgram_frame$freq, y=10*log10(periodgram_frame$spec/max(periodgram_frame$spec)) )) + geom_line() + scale_x_log10()
+    periodgram <<-ggplot(periodgram_frame, aes(x=periodgram_frame$freq, y=10*log10(periodgram_frame$spec/max(periodgram_frame$spec)) )) + geom_line() + scale_x_log10() +ggtitle(paste("Periodgram", base_filename))
     
     
   }
@@ -554,13 +573,21 @@ Eod$methods(
     p_frame
     
   },
+  inversePhase = function()
+  {
+   
+    global_baseline_done = FALSE
+    file_wave$amplitude<<-file_wave$amplitude * -1
+    getPossibleBaseline(baselineType)
+    return("done")
+  }
+  ,
   #GGPLOT
   save_plot = function(p_frame, p_title, valleys_peaks, v_frame_zero, v_frame_start_end, v_chosen_baseline_position )
   {
     tmp_plot<-ggplot(p_frame,aes(x = time, y = amplitude)) + geom_line() + ggtitle(p_title)+
-      #geom_point(shape=8, data= v_frame_extrema , fill="black", color="black", size=3) + #display peaks
       geom_point(shape=8, data= p_frame[valleys_peaks,] , fill="black", color="black", size=3) + #display peaks
-      #???geom_text(data= v_frame_extrema, label=v_frame_extrema$labels,  hjust=0,vjust=0) + #peaks label
+
       geom_point(shape=16,   data= v_frame_zero ,  color="red", size=3) + #x=0 (halfway between peaks)
       geom_point(shape=1,   data= v_frame_start_end ,  color="red", size=3) + #display start and stop
       geom_text(data= v_frame_start_end, label=v_frame_start_end$labels,  hjust=0,vjust=0)+
@@ -569,7 +596,20 @@ Eod$methods(
     
     tmp_plot
   }
+  #file
+  ,
+  savePlots = function(folder)
+  {
+    
+
+    name_main_plot=paste0(folder, "\\",base_filename ,"_main_plot", ".png")
+    name_derivate_plot=paste0(folder,"\\", base_filename,"_derivate_plot", ".png")
+    name_periodgram_plot=paste0(folder,"\\", base_filename,"_periodgram_plot", ".png")
   
+    ggsave(name_main_plot,getMainPlot())
+    ggsave(name_derivate_plot,getDerivatePlot())
+    ggsave(name_periodgram_plot,getPeriodgramPlot())
+  }
   
   
   )
