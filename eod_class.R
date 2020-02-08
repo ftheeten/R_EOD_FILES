@@ -53,7 +53,12 @@ Eod <-setRefClass("Eod",
                        last_by_meanvar="numeric",
                        last_by_arbitrary_baseline="numeric",
                        arbitraryBaseline="numeric",
-                       frame_baseline="ANY"
+                       frame_baseline="ANY",
+                       frame_absolute="ANY",
+                       chosen_baseline_index="numeric",
+                       chosen_baseline="ANY",
+                       chosen_baseline_position="numeric",
+                       chosen_last_position="numeric"
                      )
                      
 )
@@ -186,40 +191,68 @@ Eod$methods(
   
     defineBaseline=function()
     {
-      v_frame<-.self$getWave()
       
-      o_changepoints_mean<<-cpt.mean(v_frame$amplitude, method="BinSeg",Q=5)
+      
+      o_changepoints_mean<<-cpt.mean(file_wave$amplitude, method="BinSeg",Q=5)
       v_changepoints_mean<<-cpts(o_changepoints_mean)
       
       if(length(v_changepoints_mean)>0)
       {  
-        mean_by_mean <<- coalesce(mean(v_frame[1:v_changepoints_mean[1],1 ]),0L )
-        last_by_mean <<- tail(v_changepoints_mean, n=1)
+        mean_by_mean <<- coalesce(mean(file_wave[1:v_changepoints_mean[1],1 ]),0L )
       }
+      else
+      {
+        v_changepoints_mean<<-c(1,length(file_wave$time))
+      }
+      last_by_mean <<- tail(v_changepoints_mean, n=1)
       
-      o_changepoints_var<<-cpt.var(v_frame$amplitude, method="BinSeg",Q=5)
+      o_changepoints_var<<-cpt.var(file_wave$amplitude, method="BinSeg",Q=5)
       v_changepoints_var<<-cpts(o_changepoints_var)
       if(length(v_changepoints_var)>0)
       { 
-        mean_by_var <<- mean(v_frame[1:v_changepoints_var[1],1 ])
-        last_by_var <<- tail(v_changepoints_var, n=1)
+        mean_by_var <<- mean(file_wave[1:v_changepoints_var[1],1 ])
       }
+      else
+      {
+        v_changepoints_var<<-c(1,length(file_wave$time))      
+      }
+      last_by_var <<- tail(v_changepoints_var, n=1)
       
-      o_changepoints_meanvar<<-cpt.meanvar(v_frame$amplitude, method="BinSeg",Q=5)
+      o_changepoints_meanvar<<-cpt.meanvar(file_wave$amplitude, method="BinSeg",Q=5)
       v_changepoints_meanvar <<- cpts(o_changepoints_meanvar)
       if(length(v_changepoints_meanvar)>0)
       { 
-        mean_by_meanvar <<- mean(v_frame[1:v_changepoints_meanvar[1],1 ])
-        last_by_meanvar <<- tail(v_changepoints_meanvar, n=1)
+        mean_by_meanvar <<- mean(file_wave[1:v_changepoints_meanvar[1],1 ])
       }
-      
-      mean_by_arbitrary_baseline <<- mean(v_frame[1:arbitraryBaseline, 1 ])
-      last_by_arbitrary_baseline <<-nrow(v_frame)
+      else
+      {
+        v_changepoints_meanvar<<-c(1,length(file_wave$time))
+      }
+      last_by_meanvar <<- tail(v_changepoints_meanvar, n=1)
+      mean_by_arbitrary_baseline <<- mean(file_wave[1:arbitraryBaseline, 1 ])
+      last_by_arbitrary_baseline <<-nrow(file_wave)
         
       global_baseline_done = TRUE
       
     },
-  
+    getAbsoluteValues=function()
+    {
+      
+      frame_absolute <<- data.frame(
+        entry=c("duration_sec", "nb_lines", "min_amplitude", "max_amplitude", "pos_min", "pos_max", "time_min", "time_max"),
+        value=c(tail(file_wave$time,1), 
+                format(length(file_wave$time), scientific=FALSE), 
+                min(file_wave$amplitude), max(file_wave$amplitude),
+                format(which(file_wave$amplitude==min(file_wave$amplitude)), scientific=FALSE),
+                format(which(file_wave$amplitude==max(file_wave$amplitude)), scientific=FALSE),
+                file_wave$time[which(file_wave$amplitude==min(file_wave$amplitude))],
+                file_wave$time[which(file_wave$amplitude==max(file_wave$amplitude))]
+        )
+        
+      )
+      frame_absolute
+    }
+    ,
     getPossibleBaseline=function()
     {
      
@@ -228,18 +261,45 @@ Eod$methods(
         defineBaseline()
         
       }
-      
      
       frame_baseline <<- data.frame(
                           type=c("mean", "var", "meanvar","by_arbitrary_baseline" ),
                           mean=c(mean_by_mean,mean_by_var,mean_by_meanvar,mean_by_arbitrary_baseline ), 
-                          position=c(v_changepoints_mean[1],v_changepoints_var[1], v_changepoints_meanvar[1],arbitraryBaseline),
-                          last=c(last_by_mean, last_by_var, last_by_meanvar,last_by_arbitrary_baseline)
+                          first_position=c(v_changepoints_mean[1],v_changepoints_var[1], v_changepoints_meanvar[1],arbitraryBaseline),
+                          last_position=c(last_by_mean, last_by_var, last_by_meanvar,last_by_arbitrary_baseline),
+                          first_position_time=c(file_wave$time[ v_changepoints_mean[1]],
+                                                file_wave$time[v_changepoints_var[1]], 
+                                                file_wave$time[v_changepoints_meanvar[1]],
+                                                file_wave$time[arbitraryBaseline]),
+                          last_position_time=c(file_wave$time[last_by_mean], file_wave$time[last_by_var], file_wave$time[last_by_meanvar],file_wave$time[last_by_arbitrary_baseline]),
+                          inflexion_points=c(paste(v_changepoints_mean,collapse=" "),paste(v_changepoints_var,collapse=" "), paste(v_changepoints_meanvar,collapse=" "),paste(c(arbitraryBaseline,last_by_arbitrary_baseline),collapse=" "))
                                   )
-      
 
-      
+      chooseBaselineAndNormalize("meanvar")
       frame_baseline
+    },
+    chooseBaselineAndNormalize = function(type) #type = "mean, meanvar, var, arbitrary
+    {
+      if(type=="mean")
+      {
+        chosen_baseline_position <<- 1
+      }
+      else if(type=="var")
+      {
+        chosen_baseline_position <<- 2
+      }
+      else if(type=="meanvar")
+      {
+        chosen_baseline_position <<- 3
+      }
+      else if(type=="arbitrary")
+      {
+        chosen_baseline_position <<-4
+      }
+      chosen_baseline<<-frame_baseline$mean[chosen_baseline_index]
+      chosen_baseline_position<<-frame_baseline$first_position[chosen_baseline_index]
+      chosen_last_position<<-frame_baseline$last_position[chosen_baseline_index]
+      
     }
     
   

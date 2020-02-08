@@ -5,8 +5,9 @@ v <- Eod$new(specimenTag="test")
 
 print(v$getSpecimenTag())
 
-v$readFile("D:\\ftheeten\\BICS\\R_DEV_CORNELL\\TRAINING2020\\data\\MbisaCongo_MC-1006_A.csv")
+v$readFile("C:\\R_DEV_MORMY\\data_source\\MbisaCongo_MC-1006_A.csv")
 print(v$getSpecimenTag())
 View(v$getMetadata())
 View(v$getWave())
+View(v$getAbsoluteValues())
 View(v$getPossibleBaseline())
