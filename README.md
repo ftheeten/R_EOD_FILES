@@ -7,7 +7,7 @@ Its core component is the **eod_class.R** file , which contains two classes, imp
 - Eod
 - EodCluster
 
-"**Eod**" maps the access to a sinfle Mormyroscope file and :
+"**Eod**" maps the access to a single Mormyroscope CSV-file and :
 
 - extracts its metadata (first 12 lines) as a dataframe
 - extracts the original wave as a dataframe with 2 columns (time and amplitude)
