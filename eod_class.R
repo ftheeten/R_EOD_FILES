@@ -2,6 +2,7 @@ require(reader)
 require(ggplot2)
 require(changepoint)
 require(dplyr )
+require(RColorBrewer)
 
 global_metadata_lines = 12
 global_sampling_rate = 192000
@@ -354,6 +355,8 @@ Eod$methods(
       normalized_wave$amplitude <<- normalized_wave$amplitude - chosen_baseline
       
       normalized_wave$amplitude <<- normalized_wave$amplitude/(max(normalized_wave$amplitude) - min(normalized_wave$amplitude))
+      #normalize time
+      normalized_wave<<-normalize_and_center_time(normalized_wave)
       #View(normalized_wave)
       createPeriodgram()
       
@@ -685,9 +688,22 @@ EodCluster$methods(
        i <- i+1
      }
      colnames(df) <- cols
-     tmp_plot<-ggplot(df, aes(x=time))
-     add_lines <- lapply(cols[2:length(cols)], function(i) geom_line(aes_q(y = as.name(i), colour = i)))
-     tmp_plot<- tmp_plot + add_lines
+     tmp_plot<-ggplot(df, aes(x=time, y=amplitude))
+   
+     p_cols <- brewer.pal(n = length(eodObjects)-1, name = 'RdBu')
+     i=1
+     for(eod in eodObjects)
+     {
+       tmp_name <- gsub("\\.csv","",eod$getBaseFilename())
+       #tmp_name <- gsub("\\_","",tmp_name)
+       tmp_name <- gsub("\\-","_",tmp_name)
+       print(tmp_name)
+       tmp_frame<-eod$getNormalizedWave() 
+       colnames(tmp_frame)<-c("time", tmp_name)
+       tmp_plot<- tmp_plot + geom_line(data = tmp_frame, aes_string(x="time", y=tmp_name), color=p_cols[i] )
+       i<-i+1
+     }
+     tmp_plot<- tmp_plot + scale_color_discrete(name = "Y series", labels = cols)
      name_merged_plot=paste0(folder, "\\","merged_eod_plot", ".png")
      ggsave(name_merged_plot,tmp_plot)
    }
