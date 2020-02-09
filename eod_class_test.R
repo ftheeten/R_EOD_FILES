@@ -24,8 +24,8 @@ v$savePlots(choose.dir())
 "
 v<-EodCluster$new(choose.files())
 tmp<-v$getEODS(1)
-View(tmp$getMetadata)
+View(tmp$getMetadata())
 v_dir<-choose.dir()
-#v$saveAllPlots(v_dir)
+v$saveAllPlots(v_dir)
 v$superimposePlots(v_dir)
 

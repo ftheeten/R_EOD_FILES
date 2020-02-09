@@ -24,7 +24,7 @@ It alse contains 2 specific functions to :
 - plot all the tiles with the three diagrams (normalized wave, derivate and periodgram)  as files in a given folder. The name of the file depends from the original CSV file
 - create and save in a folder a single plot that merges (superimposes) all the wave plot (centered on 0) in a given folder
 
-## **EOD** API
+## 1 **EOD** API
 
 ### Constructor and default parameters
 
@@ -35,7 +35,7 @@ v <- Eod$new()
 TO_BE_DOCUMENTED FOR PARAMETERS
 ```
 
-### Load an EOD object from a file
+### 1.1 Load an EOD object from a file
 
 ```
 v$readFile("C:\\R_DEV_MORMY\\data_source\\MbisaCongo_MC-1013_A.csv")
@@ -48,14 +48,14 @@ v$readFile(file.choose())
     - readFile uses the contructor to create the object
 **
 
-### Get metadata (first 12 lines)
+### 1.2 Get metadata (first 12 lines)
 
 ```
 v$getMetadata()
 #result is a dataframe
 ```
 
-### Get/Set file metadata individually
+### 1.3 Get/set file metadata individually
 
 Get parameters :
 ```
@@ -89,13 +89,13 @@ v$setRecordingConductivity(<NEW_VALUE>)
 v$setProjectName(<NEW_VALUE>)
 ```
 
-### Get wave (unnomalized)
+### 1.4 Get wave (unnomalized)
 
 ```
 v$getWave()
 ```
 
-### Normalize
+### 1.5 Normalize
 
 Calculate baseline and inflexion points and view the result in a frame :
 ```
@@ -124,7 +124,7 @@ v$chooseBaselineAndNormalize(type)
 ```
 Default value of type is the previously chosen baseline (that can be also defined in the class constructor)
 
-### Get signal data
+### 1.6 Get signal data
 
 These functions returns data frame with two columns :
 - position (row indexer)
@@ -137,7 +137,7 @@ v$getLandmarks()
 v$getT1T2()
 ```
 
-### Reverse phase
+### 1.7 Inverse wave
 
 ```
 v$inversePhase()
@@ -145,25 +145,25 @@ v$inversePhase()
 
 **Note** : this function inverse the amplitude of the original wave and performs a new normalization.
 
-### get normalized wave diagram
+### 1.8 Get normalized wave diagram
 
 ```
 v$getMainPlot()
 ```
 
-### get derivate diagrams
+### 1.9 Get derivate diagrams
 
 ```
 v$getDerivatePlot()
 ```
 
-### get periodgram
+### 1.10 Get periodgram
 
 ```
 v$getPeriodgramPlot()
 ```
 
-### save all the three diagrams
+### 1.11 Save all the three diagrams
 
 ```
 v$savePlots(<PATH_OF_DIRECTORY>)
@@ -182,8 +182,61 @@ v$savePlots(choose.dir())
   - basename\_of\_csv\_file*_derivate_plot.png*
   - basename\_of\_csv\_file*_periodgram_plot.png*
   
-## **EODCluster** API
+## ** 2 EODCluster** API
 
- 
+**EODCluster** is a class gathering together a cluster of files. It can also generate a wave plot superimposing the normalized waves. 
 
-**Author Franck Theeten (Royal Museum for Central Africa)** 
+### 2.1 Initialize
+```
+ec<-EodCluster$new(<ARRAY OF FILES>)
+``` 
+With Windows file chooser :
+
+```
+ec<-EodCluster$new(choose.files())
+```
+### 2.2 Get an EOD object inside of the cluster
+```
+ec$getEODS(<INDEX position>)
+```
+E.g.  get EOD object corresponding to the second file
+```
+ec$getEODS(2)
+```
+
+The resulting variables is an EOD object whose methods are available (see documentation above) :
+```
+obj<-ec$getEODS(2)
+View(obj$getMetadata())
+obj$getPossibleBaseline()
+obj$getPeriodgram()
+```
+
+Shorter syntax :
+```
+View(ec$getEODS(2)$getMetadata())
+```
+
+### 2.3 Save all plots
+```
+ec$saveAllPlots(<DIRECTORY_PATH>)
+```
+
+With Windows directory chooser
+
+```
+ec$saveAllPlots(choose.dir())
+```
+
+### 2.4 Create plot merging normalized waves
+```
+ec$superimposePlots(<DIRECTORY_PATH>)
+```
+
+With Windows directory chooser
+
+```
+ec$superimposePlots(choose.dir())
+```
+
+**Author : Franck Theeten (Royal Museum for Central Africa) franck.theeten@africamuseum.be ** 
