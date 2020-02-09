@@ -239,4 +239,4 @@ With Windows directory chooser
 ec$superimposePlots(choose.dir())
 ```
 
-**Author : Franck Theeten (Royal Museum for Central Africa) franck.theeten@africamuseum.be ** 
+Author : Franck Theeten (Royal Museum for Central Africa) franck.theeten@africamuseum.be
