@@ -77,7 +77,6 @@ Eod <-setRefClass("Eod",
 )
 
 atts <- attributes(Eod$fields())$names
-print(atts)
 Eod$accessors(atts)
 Eod$methods()
 
@@ -198,10 +197,18 @@ Eod$methods(
     {
       file_metadata
     },
+    getBaseFilename=function()
+    {
+      base_filename
+    },
   
     getWave=function()
     {
      file_wave
+    },
+    getNormalizedWave=function()
+    {
+      normalized_wave
     },
     getMainPlot = function()
     {
@@ -347,7 +354,7 @@ Eod$methods(
       normalized_wave$amplitude <<- normalized_wave$amplitude - chosen_baseline
       
       normalized_wave$amplitude <<- normalized_wave$amplitude/(max(normalized_wave$amplitude) - min(normalized_wave$amplitude))
-      View(normalized_wave)
+      #View(normalized_wave)
       createPeriodgram()
       
       
@@ -612,6 +619,76 @@ Eod$methods(
   }
   
   
-  )
+)
 
+#cluster object
 
+EodCluster <-setRefClass("EodClusters",
+                         fields = list(
+                           sourceFiles="vector",
+                           eodObjects="ANY",
+                           baselineType="character"
+                           )
+                         )
+
+atts_clusters <- attributes(EodCluster$fields())$names
+EodCluster$accessors(atts_clusters)
+EodCluster$methods()
+
+EodCluster$methods(
+  initialize=
+    function(sourceFiles="N/A", baselineType=global_baseline_type, ...)
+    {
+      callSuper(...)
+      sourceFiles<<-sourceFiles
+      baselineType<<-baselineType
+      objs=list()
+      i <- 1
+      for(file in sourceFiles)
+      {
+        eod <- Eod$new(specimenTag="init")
+        eod$readFile(file)
+        eod$getPossibleBaseline(baselineType)
+        objs[[i]]<-eod
+        i <- i + 1
+      }
+      eodObjects <<- objs
+      .self
+    },
+    getEODS=function(index)
+    {
+       eodObjects[[index]]
+    },
+   saveAllPlots = function(folder)
+   {
+      for(eod in eodObjects)
+      {
+        eod$savePlots(folder)
+      }
+   },
+   superimposePlots=function(folder)
+   {
+     df=NULL
+     i=1
+     cols=c("time")
+     for(eod in eodObjects)
+     {
+       if(i==1)
+       {
+         df<-data.frame(eod$getNormalizedWave())
+       }
+       else
+       {
+         df<-merge(df, eod$getNormalizedWave(), by="time", all=TRUE )
+       } 
+      cols<-c(cols, eod$getBaseFilename())
+       i <- i+1
+     }
+     colnames(df) <- cols
+     tmp_plot<-ggplot(df, aes(x=time))
+     add_lines <- lapply(cols[2:length(cols)], function(i) geom_line(aes_q(y = as.name(i), colour = i)))
+     tmp_plot<- tmp_plot + add_lines
+     name_merged_plot=paste0(folder, "\\","merged_eod_plot", ".png")
+     ggsave(name_merged_plot,tmp_plot)
+   }
+)
