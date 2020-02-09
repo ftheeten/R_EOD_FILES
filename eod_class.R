@@ -3,6 +3,7 @@ require(ggplot2)
 require(changepoint)
 require(dplyr )
 require(RColorBrewer)
+require(cowplot)
 
 global_metadata_lines = 12
 global_sampling_rate = 192000
@@ -524,7 +525,7 @@ Eod$methods(
     v_1sec_frame<-rbind(v_pad_frame,v_1sec_frame )
     v_pad_frame$time=v_pad_frame$time + v_mean_interval +max(v_1sec_frame$time)
     v_1sec_frame<-rbind(v_1sec_frame, v_pad_frame)
-    plot(v_1sec_frame, type='l')
+    #plot(v_1sec_frame, type='l')
     print("Min padded")
     print(min(v_1sec_frame$time))
     print("Max padded")
@@ -687,23 +688,16 @@ EodCluster$methods(
       cols<-c(cols, eod$getBaseFilename())
        i <- i+1
      }
-     colnames(df) <- cols
+     print(cols)
      tmp_plot<-ggplot(df, aes(x=time, y=amplitude))
-   
-     p_cols <- brewer.pal(n = length(eodObjects)-1, name = 'RdBu')
-     i=1
+     
      for(eod in eodObjects)
      {
-       tmp_name <- gsub("\\.csv","",eod$getBaseFilename())
-       #tmp_name <- gsub("\\_","",tmp_name)
-       tmp_name <- gsub("\\-","_",tmp_name)
-       print(tmp_name)
        tmp_frame<-eod$getNormalizedWave() 
-       colnames(tmp_frame)<-c("time", tmp_name)
-       tmp_plot<- tmp_plot + geom_line(data = tmp_frame, aes_string(x="time", y=tmp_name), color=p_cols[i] )
-       i<-i+1
+       tmp_frame$filename=eod$getBaseFilename()
+       colnames(tmp_frame)<-c("time", "amplitude", "filename")
+       tmp_plot<- tmp_plot + geom_line(data = tmp_frame, aes(x=time, y=amplitude, color=filename) ) 
      }
-     tmp_plot<- tmp_plot + scale_color_discrete(name = "Y series", labels = cols)
      name_merged_plot=paste0(folder, "\\","merged_eod_plot", ".png")
      ggsave(name_merged_plot,tmp_plot)
    }

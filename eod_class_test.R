@@ -27,3 +27,4 @@ View(tmp$getMetadata)
 v_dir<-choose.dir()
 #v$saveAllPlots(v_dir)
 v$superimposePlots(v_dir)
+
