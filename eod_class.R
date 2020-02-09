@@ -3,7 +3,7 @@ require(ggplot2)
 require(changepoint)
 require(dplyr )
 require(RColorBrewer)
-require(cowplot)
+
 
 global_metadata_lines = 12
 global_sampling_rate = 192000
