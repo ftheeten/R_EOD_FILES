@@ -182,7 +182,7 @@ v$savePlots(choose.dir())
   - basename\_of\_csv\_file*_derivate_plot.png*
   - basename\_of\_csv\_file*_periodgram_plot.png*
   
-## ** 2 EODCluster** API
+## **2 EODCluster** API
 
 **EODCluster** is a class gathering together a cluster of files. It can also generate a wave plot superimposing the normalized waves. 
 
