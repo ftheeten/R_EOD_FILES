@@ -89,7 +89,7 @@ v$setRecordingConductivity(<NEW_VALUE>)
 v$setProjectName(<NEW_VALUE>)
 ```
 
-### 1.4 Get wave (unnomalized)
+### 1.4 Get wave (unnormalized)
 
 ```
 v$getWave()
