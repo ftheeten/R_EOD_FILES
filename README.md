@@ -178,9 +178,9 @@ v$savePlots(choose.dir())
 **Note**
 - the plot are generated with ggplot
 - pattern
-  - <basename of csv file>*_main_plot.png*
-  - <basename of csv file>*_derivate_plot.png*
-  - <basename of csv file>*_periodgram_plot.png*
+  - basename\_of\_csv\_file*_main_plot.png*
+  - basename\_of\_csv\_file*_derivate_plot.png*
+  - basename\_of\_csv\_file*_periodgram_plot.png*
   
 ## **EODCluster** API
 
