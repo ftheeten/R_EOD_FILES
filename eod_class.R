@@ -1,8 +1,6 @@
 require(reader)
 require(ggplot2)
 require(changepoint)
-require(dplyr )
-require(RColorBrewer)
 
 
 global_metadata_lines = 12
@@ -40,6 +38,7 @@ Eod <-setRefClass("Eod",
                        encoding = "character",
                        file_wave="ANY",
                        decimal_sep = "character",
+                       specimenIdentifier="character",
                        #SC treatements
                        o_changepoints_mean="ANY",
                        v_changepoints_mean = "vector",
@@ -139,6 +138,7 @@ Eod$methods(
               last_by_arbitrary_baseline<<-0
               baselineType <<- baselineType 
               base_filename<<-basename(file)
+              specimenIdentifier<<- paste(projectName, collectionEvent, specimenTag, sep="_")
                .self
              }
     ,
@@ -233,6 +233,11 @@ Eod$methods(
     {
       tmp<-normalized_wave[valleys_peaks,]
       tmp[order(tmp$time),]
+    },
+  
+    getRecordingDateFormatted = function()
+    {
+      timestamp(recordingDateTime)
     },
        #sc functions
     defineBaseline=function()
@@ -631,7 +636,8 @@ EodCluster <-setRefClass("EodClusters",
                          fields = list(
                            sourceFiles="vector",
                            eodObjects="ANY",
-                           baselineType="character"
+                           baselineType="character",
+                           identifiers="ANY"
                            )
                          )
 
@@ -647,13 +653,24 @@ EodCluster$methods(
       sourceFiles<<-sourceFiles
       baselineType<<-baselineType
       objs=list()
+      identifiers<<-data.frame(id=c(), count=c())
       i <- 1
       for(file in sourceFiles)
       {
         eod <- Eod$new(specimenTag="init")
         eod$readFile(file)
         eod$getPossibleBaseline(baselineType)
+        
         objs[[i]]<-eod
+        if(eod$getSpecimenIdentifier() %in% identifiers$id )
+        {
+          identifiers$count[which(identifiers$id==eod$getSpecimenIdentifier())]<<-identifiers$count[which(identifiers$id==eod$getSpecimenIdentifier())]+1
+        }
+        else
+        {
+          line<-data.frame(id=c(eod$getSpecimenIdentifier()), count=c(1))
+          identifiers<<-rbind(identifiers,line)
+        }
         i <- i + 1
       }
       eodObjects <<- objs
@@ -663,19 +680,48 @@ EodCluster$methods(
     {
        eodObjects[[index]]
     },
-   saveAllPlots = function(folder)
-   {
-      for(eod in eodObjects)
+    getSpecimenList = function()
+    {
+      identifiers
+    },
+    getSpecimenData=function(specimen_id)
+    {
+      tmp<-unlist(lapply(eodObjects, function(x) x$getSpecimenIdentifier()==specimen_id), use.names = FALSE)
+      eodObjects[tmp==TRUE]
+    },
+    saveAllPlots = function(folder, specimen_id="")
+    {
+      if(specimen_id=="")
+      {
+        v_tmp<-eodObjects
+      }
+      else
+      {
+        tmp <- unlist(lapply(eodObjects, function(x) x$getSpecimenIdentifier()==specimen_id), use.names = FALSE)
+        v_tmp <- eodObjects[tmp==TRUE]
+      }
+      for(eod in v_tmp)
       {
         eod$savePlots(folder)
       }
-   },
-   superimposePlots=function(folder)
+    },
+   superimposePlots=function(folder, specimen_id="")
    {
+     if(specimen_id=="")
+     {
+       file_name=""
+       v_tmp<-eodObjects
+     }
+     else
+     {
+       file_name=specimen_id
+       tmp <- unlist(lapply(eodObjects, function(x) x$getSpecimenIdentifier()==specimen_id), use.names = FALSE)
+       v_tmp <- eodObjects[tmp==TRUE]
+     }
      df=NULL
      i=1
      cols=c("time")
-     for(eod in eodObjects)
+     for(eod in v_tmp)
      {
        if(i==1)
        {
@@ -691,14 +737,14 @@ EodCluster$methods(
      print(cols)
      tmp_plot<-ggplot(df, aes(x=time, y=amplitude))
      
-     for(eod in eodObjects)
+     for(eod in v_tmp)
      {
        tmp_frame<-eod$getNormalizedWave() 
        tmp_frame$filename=eod$getBaseFilename()
        colnames(tmp_frame)<-c("time", "amplitude", "filename")
        tmp_plot<- tmp_plot + geom_line(data = tmp_frame, aes(x=time, y=amplitude, color=filename) ) 
      }
-     name_merged_plot=paste0(folder, "\\","merged_eod_plot", ".png")
+     name_merged_plot=paste0(folder, "\\",file_name,"merged_eod_plot", ".png")
      ggsave(name_merged_plot,tmp_plot)
    }
 )
