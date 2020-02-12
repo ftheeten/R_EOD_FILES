@@ -28,14 +28,14 @@ v_dir<-choose.dir()
 v$saveAllPlots(v_dir)
 v$superimposePlots(v_dir)
 
-<<<<<<< HEAD
+
 v$getSpecimenList()
 v$superimposePlots(choose.dir(), "Mbisa Congo_HC001_MC-1013")
 v$superimposePlots(choose.dir(), "Mbisa Congo_HC002_MC-1006")
-=======
+
 #change normalization
 tmp<-v$getEODS(1)
 tmp$setArbitraryBaseline(60)
 tmp$getPossibleBaseline(type="arbitrary")
 print(tmp$getMainPlot())
->>>>>>> e2f5207b2a89d57a0b0e56f1b523ee35913bd8ea
+

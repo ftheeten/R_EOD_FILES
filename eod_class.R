@@ -62,7 +62,8 @@ Eod <-setRefClass("Eod",
                        chosen_baseline="ANY",
                        chosen_baseline_position="numeric",
                        chosen_last_position="numeric",
-                       normalized_wave= "ANY", 
+                       normalized_wave= "ANY",
+                       normalized_wave_amplitude_only= "ANY", 
                        v_frame_zero = "ANY",
                        frame_start_end ="ANY",
                        valleys_peaks = "ANY",
@@ -330,6 +331,12 @@ Eod$methods(
       frame_baseline
     },
     #main sc function
+    normalize = function(type=baselineType)
+    {
+      
+      getPossibleBaseline(type)
+    }
+    ,
     chooseBaselineAndNormalize = function(type) #type = "mean, meanvar, var, arbitrary
     {
       print(type)
@@ -361,6 +368,7 @@ Eod$methods(
       normalized_wave$amplitude <<- normalized_wave$amplitude - chosen_baseline
       
       normalized_wave$amplitude <<- normalized_wave$amplitude/(max(normalized_wave$amplitude) - min(normalized_wave$amplitude))
+      normalized_wave_amplitude_only <<-normalized_wave
       #normalize time
       normalized_wave<<-normalize_and_center_time(normalized_wave)
       #View(normalized_wave)
@@ -484,9 +492,9 @@ Eod$methods(
     v_returned=c()
     v_diff=diff(p_frame$amplitude)
     v_returned=c(v_returned,0 )
-    for(i in 1:length(v_diff)-1)
+    for(i in 2:length(v_diff))
     {
-      v_returned=c(v_returned,v_diff[i+1]-v_diff[i] )
+      v_returned=c(v_returned,v_diff[i]-v_diff[i-1] )
     }
     v_returned=c(v_returned,0 )
     
@@ -511,11 +519,11 @@ Eod$methods(
   ,
   pad_1_sec=function()
   {
-    v_diff_1sec=1-max(normalized_wave$time)
+    v_diff_1sec=1-max(normalized_wave_amplitude_only$time)
     print("diff 1 sec")
     print(v_diff_1sec)
     
-    v_time_interv=diff(normalized_wave$time)
+    v_time_interv=diff(normalized_wave_amplitude_only$time)
     v_mean_interval=mean(v_time_interv)
     print("mean interv")
     print(v_mean_interval)
@@ -523,7 +531,7 @@ Eod$methods(
     v_pad=seq(0,v_diff_1sec/2, by=v_mean_interval )
     #View(pad)
     #copy
-    v_1sec_frame=data.frame(normalized_wave)
+    v_1sec_frame=data.frame(normalized_wave_amplitude_only)
     v_1sec_frame$time<-v_1sec_frame$time + v_mean_interval+ (v_diff_1sec/2) 
     v_pad_frame=data.frame(time=v_pad, amplitude=rep(0, times=length(v_pad)))
     #View(v_pad_frame)
