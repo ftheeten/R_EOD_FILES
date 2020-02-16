@@ -198,7 +198,8 @@ for(file in files)
   pos_max3=min(which(div_left==max(abs(div_left))))
   abline(v=df$time[pos_max3], col="grey")   
   #mth4 contiguous positives values
-  pos4=count_contiguous_positives(div_left)
+  div_left2=diff(df_div_first$amplitude)
+  pos4=count_contiguous_positives(div_left2)
   abline(v=df$time[pos4], col="brown")             
   
   plot(df_div, type="l", main="deriv")
