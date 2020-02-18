@@ -1,4 +1,5 @@
 require(reader)
+require("funprog")
 
 global_nb_peaks<-7
 global_skip_lines<-12
@@ -123,7 +124,7 @@ count_contiguous_positives<-function(param)
       else
       {
         print(paste("break at ", i))
-        if(serie_length>length_biggest_serie)
+        if(serie_length>=length_biggest_serie)
         {
           biggest_serie=current_serie
           length_biggest_serie=serie_length
@@ -205,7 +206,13 @@ for(file in files)
   div_left2=diff(df_div_first$amplitude)
   View(div_left2)
   pos4=count_contiguous_positives(div_left2)
-  abline(v=df$time[pos4], col="brown", lty=2)             
+  abline(v=df$time[pos4], col="brown", lty=2) 
+  
+  #fun prog
+  croiss <- funprog::group_if(div_left2, `<=`)
+  longueurs <- lengths(croiss)
+  tmp<-croiss[longueurs == max(longueurs)] # ajouter [[1]] pour avoir la première des plus longues séquences   
+  print(tmp)
   
   plot(df_div, type="l", main="deriv")
   
