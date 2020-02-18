@@ -105,36 +105,40 @@ detect_peak_plateau = function(p_frame, current_position, last_position)
 
 count_contiguous_positives<-function(param)
 {
-  pos<-which(param>=0)
-  print(pos)
   
-  serie_length<-0
+
+  
+  serie_length<-1
   current_serie = 1
   length_biggest_serie = 0
   biggest_serie = 1
-  for(i in 2:length(pos))
+  for(i in 2:length(param))
   {
-      current=pos[i]
-      previous=pos[i-1]
-      if(current-previous==1)
+      current=param[i]
+      previous=param[i-1]
+      if(current-previous>=0)
       {
         serie_length<-serie_length+1
       }
       else
       {
+        print(paste("break at ", i))
         if(serie_length>length_biggest_serie)
         {
           biggest_serie=current_serie
           length_biggest_serie=serie_length
         }
-        current_serie=i
-        serie_length=0
+        if(i<length(param))
+        {
+          current_serie=i
+          serie_length=1
+        }
       }
-      if(serie_length>length_biggest_serie)
-      {
-        biggest_serie=current_serie
-        length_biggest_serie=serie_length
-      }
+      #if(serie_length>length_biggest_serie)
+      #{
+      #  biggest_serie=current_serie
+      #  length_biggest_serie=serie_length
+      #}
       
   }
   print("biggest serie")
@@ -199,8 +203,9 @@ for(file in files)
   abline(v=df$time[pos_max3], col="grey")   
   #mth4 contiguous positives values
   div_left2=diff(df_div_first$amplitude)
+  View(div_left2)
   pos4=count_contiguous_positives(div_left2)
-  abline(v=df$time[pos4], col="brown")             
+  abline(v=df$time[pos4], col="brown", lty=2)             
   
   plot(df_div, type="l", main="deriv")
   
