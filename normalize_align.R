@@ -1,6 +1,7 @@
 require(ggplot2)
 require(reader)
-require("funprog")
+require(zoo)
+
 
 global_nb_peaks<-7
 global_skip_lines<-12
@@ -217,6 +218,22 @@ count_contiguous_positives<-function(param)
   biggest_serie
   
 }
+
+
+
+fill_amplitude=function(p_frame)
+{
+ 
+  begin<-min(which(!is.na(p_frame[, 2])))
+  end<-max(which(!is.na(p_frame[, 2])))
+  p_frame_2 <- p_frame[begin:end,]
+  p_frame[begin:end,2] <- na.approx(p_frame_2[, 2],p_frame_2[ ,1] )
+  #View(p_frame)
+  #plot(p_frame)
+  p_frame
+
+}
+
 ####################################################################
 files=choose.files()
 i<-1
@@ -288,6 +305,15 @@ for(file in files)
 }
 
 merged<-merge_eods(array_normalized, array_file_names)
+
+for(j in 2:ncol(merged))
+{
+   print("col j")
+   print(j)
+   frame_tmp<-merged[, c(1,j)]
+   frame_tmp<-fill_amplitude(frame_tmp)
+   merged[,j]<-frame_tmp[,2]
+}
 View(merged)
 
 tmp_plot<-ggplot(merged, aes(x=time, y=amplitude))
