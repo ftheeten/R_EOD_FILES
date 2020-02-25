@@ -4,7 +4,7 @@ require("funprog")
 global_nb_peaks<-7
 global_skip_lines<-12
 sampling_rate <- 192000
-treshold_equals<-0.6
+treshold_equals<-1.0
 
 
 ####################################################################""
