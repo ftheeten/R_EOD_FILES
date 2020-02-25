@@ -6,6 +6,7 @@ require(zoo)
 global_nb_peaks<-7
 global_skip_lines<-12
 sampling_rate <- 192000
+treshold_equals<-1.0
 
 array_normalized<-list()
 array_file_names<-c()
@@ -37,8 +38,8 @@ normalize_time_on_peak_distance = function(p_frame)
   time_max=p_frame$time[pos_max]
   time_base= abs(time_min-time_max)
   new_zero = (time_min + time_max) / 2
-  print("new zero")
-  print(new_zero)
+  #print("new zero")
+  #print(new_zero)
   p_frame$time<-p_frame$time - new_zero
   p_frame$time<-p_frame$time / time_base
   p_frame
@@ -162,26 +163,42 @@ find_peaks_and_valleys = function( p_frame, p_silent_index, p_last_position, p_d
 
 detect_peak_plateau = function(p_frame, current_position, last_position)
 {
+  
+  
   returned<-current_position
   p_ref_val=p_frame$amplitude[current_position]
-  for(i in current_position+1:last_position)
+  if((current_position+1)<last_position)
   {
-    p_val<-p_frame$amplitude[i]
-    if(p_val!=p_ref_val)
+    for(i in (current_position+1):last_position)
     {
-      return(i-1)
+      p_val<-p_frame$amplitude[i]
+      if(p_val!=p_ref_val)
+      {
+        return(i-1)
+      }
     }
+    
   }
+  else
+  {
+    return(last_position)
+  }
+  print("return detect_peak_plateau")
   returned
 }
 
 
+
 count_contiguous_positives<-function(param)
 {
+  
+  
+  
   serie_length<-1
   current_serie = 1
   length_biggest_serie = 0
   biggest_serie = 1
+  count_zero_diff=0
   for(i in 2:length(param))
   {
     current=param[i]
@@ -189,19 +206,28 @@ count_contiguous_positives<-function(param)
     if(current-previous>=0)
     {
       serie_length<-serie_length+1
+      if(current-previous==0)
+      {
+        count_zero_diff=count_zero_diff+1
+      }
     }
     else
     {
       #print(paste("break at ", i))
-      if(serie_length>length_biggest_serie)
+      ratio_null=count_zero_diff/serie_length
+      
+      if(serie_length>=length_biggest_serie & ratio_null<= treshold_equals)
       {
         biggest_serie=current_serie
         length_biggest_serie=serie_length
+        #print("ratio_null_diff")
+        #print(ratio_null)
       }
       if(i<length(param))
       {
         current_serie=i
         serie_length=1
+        count_zero_diff=0
       }
     }
     #if(serie_length>length_biggest_serie)
@@ -239,9 +265,25 @@ files=choose.files()
 i<-1
 for(file in files)
 {
+  print(basename(file))
+  firstline = read.csv(file,header = FALSE,nrows = 1,sep = "=")
+  if(length(firstline)==2) 
+  {
+    Mscope_ver = 1
+    global_skip_lines<-12
+    
+  }
+  else
+  {
+    Mscope_ver = 2
+    global_skip_lines<-16
+   
+  }
+  
   decimal_sep <- get.delim(file,
                            skip=global_skip_lines,
-                           delims=c(".","."))
+                           delims=c(",","."))
+  
   df=read.csv(file, sep='\t',
               skip=global_skip_lines, 
               header=TRUE,
@@ -262,7 +304,7 @@ for(file in files)
   peaks_deriv = find_peaks_and_valleys(df_div, 1, nrow(df_div),p_nb_peaks=global_nb_peaks)
   
   peaks=find_peaks_and_valleys(df, 1, nrow(df),p_nb_peaks=global_nb_peaks)
-  print(peaks)
+  #print(peaks)
   plot(df, type="l", main="main plot")
   points(df[peaks,],col = "red")
   points(df[peaks_deriv,],col = "green")
@@ -271,8 +313,8 @@ for(file in files)
   #meth1 min first
   df_div_first=data.frame(df[1:peaks[1],])
   pos_min=min(which(df_div_first$amplitude==min(df_div_first$amplitude)))
-  print("pos_min")
-  print(pos_min)
+  #print("pos_min")
+  #print(pos_min)
   abline(v=df$time[pos_min], col="blue")
   
   #meth2 max first
@@ -287,9 +329,9 @@ for(file in files)
   View(div_left2)
   pos4=count_contiguous_positives(div_left2)
   abline(v=df$time[pos4], col="brown", lty=2)
-  print("duration fct")
-  print(Sys.time()-time_begin)
-  print(pos4)
+  #print("duration fct")
+  #print(Sys.time()-time_begin)
+  #print(pos4)
  
   #plots
   p_normalized=normalize_amplitude(df, pos4)

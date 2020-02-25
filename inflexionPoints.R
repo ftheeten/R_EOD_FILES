@@ -92,15 +92,14 @@ find_peaks_and_valleys = function( p_frame, p_silent_index, p_last_position, p_d
 detect_peak_plateau = function(p_frame, current_position, last_position)
 {
  
+  
   returned<-current_position
   p_ref_val=p_frame$amplitude[current_position]
-  if(current_position+1<last_position)
+  if((current_position+1)<last_position)
   {
-    for(i in current_position+1:last_position)
+    for(i in (current_position+1):last_position)
     {
-      
       p_val<-p_frame$amplitude[i]
-      print(p_val)
       if(p_val!=p_ref_val)
       {
         return(i-1)
