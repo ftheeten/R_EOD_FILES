@@ -4,6 +4,7 @@ require("funprog")
 global_nb_peaks<-7
 global_skip_lines<-12
 sampling_rate <- 192000
+treshold_equals<-0.6
 
 
 ####################################################################""
@@ -90,16 +91,28 @@ find_peaks_and_valleys = function( p_frame, p_silent_index, p_last_position, p_d
 
 detect_peak_plateau = function(p_frame, current_position, last_position)
 {
+ 
   returned<-current_position
   p_ref_val=p_frame$amplitude[current_position]
-  for(i in current_position+1:last_position)
+  if(current_position+1<last_position)
   {
-    p_val<-p_frame$amplitude[i]
-    if(p_val!=p_ref_val)
+    for(i in current_position+1:last_position)
     {
-      return(i-1)
+      
+      p_val<-p_frame$amplitude[i]
+      print(p_val)
+      if(p_val!=p_ref_val)
+      {
+        return(i-1)
+      }
     }
+    
   }
+  else
+  {
+    return(last_position)
+  }
+  print("return detect_peak_plateau")
   returned
 }
 
@@ -113,6 +126,7 @@ count_contiguous_positives<-function(param)
   current_serie = 1
   length_biggest_serie = 0
   biggest_serie = 1
+  count_zero_diff=0
   for(i in 2:length(param))
   {
       current=param[i]
@@ -120,19 +134,28 @@ count_contiguous_positives<-function(param)
       if(current-previous>=0)
       {
         serie_length<-serie_length+1
+        if(current-previous==0)
+        {
+          count_zero_diff=count_zero_diff+1
+        }
       }
       else
       {
         print(paste("break at ", i))
-        if(serie_length>=length_biggest_serie)
+        ratio_null=count_zero_diff/serie_length
+        
+        if(serie_length>=length_biggest_serie & ratio_null<= treshold_equals)
         {
           biggest_serie=current_serie
           length_biggest_serie=serie_length
+          print("ratio_null_diff")
+          print(ratio_null)
         }
         if(i<length(param))
         {
           current_serie=i
           serie_length=1
+          count_zero_diff=0
         }
       }
       #if(serie_length>length_biggest_serie)
@@ -154,10 +177,27 @@ files=choose.files()
 
 for(file in files)
 {
+  
+  firstline = read.csv(file,header = FALSE,nrows = 1,sep = "=")
+  if(length(firstline)==2) 
+  {
+    Mscope_ver = 1
+    global_skip_lines<-12
+    print(global_skip_lines)
+  }
+  else
+  {
+    Mscope_ver = 2
+    global_skip_lines<-16
+    print(global_skip_lines)
+  }
+  
   decimal_sep <- get.delim(file,
                             skip=global_skip_lines,
-                            delims=c(".","."))
-  df=read.csv(file, sep='\t',
+                            delims=c(",","."))
+  print("decimal_sep")
+   print(decimal_sep)
+   df=read.csv(file, sep='\t',
               skip=global_skip_lines, 
               header=TRUE,
               dec=decimal_sep,
