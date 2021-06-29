@@ -179,7 +179,7 @@ Eod$methods(
       #read wave
       decimal_sep <<- get.delim(file,
                                 skip=metadata_lines,
-                                delims=c(".",".")
+                                delims=c(".",",")
       )
       file_wave<<-read.csv(
         file,
